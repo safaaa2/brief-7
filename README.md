@@ -3,6 +3,12 @@
 > **Power BI · DAX · Star Schema**  
 > Tableau de bord RH — Page Headcount & Mesures DAX
 
+![Power BI](https://img.shields.io/badge/Power%20BI-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)
+![DAX](https://img.shields.io/badge/DAX-0078D4?style=for-the-badge&logo=microsoft&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Livré%20✔-2E7D32?style=for-the-badge)
+
+---
+
 ## 📋 Informations Générales
 
 | Élément | Détail |
@@ -70,37 +76,67 @@ Compte le nombre **total de lignes** dans la Fact Table, toutes années et tous 
 
 ### 2️⃣ Headcount
 ```dax
-Headcount =
+Headcount = 
 CALCULATE(
     [All Employees],
-    People_Fact[Active] = "Yes"
+    FILTER(
+        'Fact Table',
+        'Fact Table'[hire_date] <= LASTDATE('Dates (Big)'[Date])
+        &&
+        (
+            'Fact Table'[term_date] > LASTDATE('Dates (Big)'[Date])
+            ||
+            ISBLANK('Fact Table'[term_date])
+        )
+    )
 )
 ```
-Filtre uniquement les employés **actifs**. Réagit dynamiquement aux slicers (Year, Department, Job Level…).
+Employés dont la **date d'embauche** est antérieure à la fin de la période sélectionnée,
+et dont la **date de départ** est soit postérieure, soit vide (encore actifs).
+`ISBLANK()` est la syntaxe DAX correcte pour tester une valeur vide.
 
 ---
 
-### 3️⃣ Turnover %
+### 3️⃣ Retention %
 ```dax
-Turnover % =
+Retention % = 
 DIVIDE(
-    CALCULATE([All Employees], People_Fact[Active] = "No"),
-    [All Employees],
+    CALCULATE(
+        [All Employees],
+        FILTER(
+            'Fact Table',
+            'Fact Table'[hire_date] <= LASTDATE('Dates (Big)'[Date])
+            &&
+            (
+                'Fact Table'[term_date] > LASTDATE('Dates (Big)'[Date])
+                ||
+                ISBLANK('Fact Table'[term_date])
+            )
+        )
+    ),
+    CALCULATE(
+        [All Employees],
+        FILTER(
+            'Fact Table',
+            'Fact Table'[hire_date] <= FIRSTDATE('Dates (Big)'[Date])
+        )
+    ),
     0
 )
 ```
-Ratio entre les employés **partis** et l'effectif total.  
-Le `0` dans `DIVIDE()` évite toute erreur de division par zéro.
+- **Numérateur** = employés encore actifs à la **fin** de la période (`LASTDATE`)
+- **Dénominateur** = employés présents au **début** de la période (`FIRSTDATE`)
+- `DIVIDE(..., 0)` évite la division par zéro
 
 ---
 
-### 4️⃣ Retention %
+### 4️⃣ Turnover %
 ```dax
-Retention % =
-1 - [Turnover %]
+Turnover % = 
+1 - [Retention %]
 ```
-Complément direct du Turnover.  
-Exemple : Turnover = **5,66 %** → Retention = **94,34 %**
+Complément direct de la Retention.  
+Exemple : Retention = **90,69 %** → Turnover = **9,31 %**
 
 ---
 
